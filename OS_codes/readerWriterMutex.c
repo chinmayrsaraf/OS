@@ -91,45 +91,132 @@ int main() {
  */
 
 
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <pthread.h>
+// #include <unistd.h>
+
+// #define NUM_READERS 4
+// #define NUM_WRITERS 10
+
+// int data = 0;
+// int readerCount = 0;
+// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+// pthread_cond_t readCondition = PTHREAD_COND_INITIALIZER;
+// pthread_cond_t writeCondition = PTHREAD_COND_INITIALIZER;
+
+// void* reader(void* arg) {
+//     int readerId = *(int*)arg;
+//     while (1) {
+//         pthread_mutex_lock(&mutex);
+//         readerCount++;
+//         if (readerCount == 1) {
+//             pthread_cond_wait(&writeCondition, &mutex);
+//         }
+//         pthread_mutex_unlock(&mutex);
+
+//         printf("Reader %d entering the database\n", readerId);
+//         // Read data
+
+//         // sleep(2000);
+
+//         pthread_mutex_lock(&mutex);
+//         printf("Reader %d leaving the database\n", readerId);
+//         readerCount--;
+//         if (readerCount == 0) {
+//             pthread_cond_signal(&readCondition);
+//         }
+//         pthread_mutex_unlock(&mutex);
+
+//         // usleep(2000);
+//         usleep(rand() % 2);
+//     }
+//     return NULL;
+// }
+
+// void* writer(void* arg) {
+//     int writerId = *(int*)arg;
+//     while (1) {
+//         pthread_mutex_lock(&mutex);
+//         pthread_cond_wait(&readCondition, &mutex);
+//         printf("Writer %d entering the database\n", writerId);
+//         // Write data
+
+//         printf("Writer %d leaving the database\n", writerId);
+//         pthread_cond_signal(&writeCondition);
+//         pthread_mutex_unlock(&mutex);
+
+//         // usleep(2000);
+//         usleep(rand() % 2);
+//     }
+//     return NULL;
+// }
+
+// int main() {
+//     pthread_t readers[NUM_READERS];
+//     pthread_t writers[NUM_WRITERS];
+//     int readerIds[NUM_READERS];
+//     int writerIds[NUM_WRITERS];
+
+//     for (int i = 0; i < NUM_READERS; i++) {
+//         readerIds[i] = i + 1;
+//         pthread_create(&readers[i], NULL, reader, &readerIds[i]);
+//     }
+
+//     for (int i = 0; i < NUM_WRITERS; i++) {
+//         writerIds[i] = i + 1;
+//         pthread_create(&writers[i], NULL, writer, &writerIds[i]);
+//     }
+
+//     for (int i = 0; i < NUM_READERS; i++) {
+//         pthread_join(readers[i], NULL);
+//     }
+
+//     for (int i = 0; i < NUM_WRITERS; i++) {
+//         pthread_join(writers[i], NULL);
+//     }
+
+//     return 0;
+// }
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
 
-#define NUM_READERS 
+#define NUM_READERS 4
 #define NUM_WRITERS 10
 
 int data = 0;
 int readerCount = 0;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t readCondition = PTHREAD_COND_INITIALIZER;
-pthread_cond_t writeCondition = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex;
+pthread_cond_t readCondition;
+pthread_cond_t writeCondition;
 
 void* reader(void* arg) {
     int readerId = *(int*)arg;
     while (1) {
         pthread_mutex_lock(&mutex);
-        readerCount++;
-        if (readerCount == 1) {
-            pthread_cond_wait(&writeCondition, &mutex);
+        while (readerCount == -1) {
+            pthread_cond_wait(&readCondition, &mutex);
         }
+        readerCount++;
         pthread_mutex_unlock(&mutex);
 
         printf("Reader %d entering the database\n", readerId);
         // Read data
 
-        // sleep(2000);
-
         pthread_mutex_lock(&mutex);
         printf("Reader %d leaving the database\n", readerId);
         readerCount--;
         if (readerCount == 0) {
-            pthread_cond_signal(&readCondition);
+            pthread_cond_signal(&writeCondition);
         }
         pthread_mutex_unlock(&mutex);
 
-        // usleep(2000);
-        usleep(rand() % 2);
+        // usleep(rand() % 2);
+        usleep(100000); // sleep for 100ms
     }
     return NULL;
 }
@@ -138,16 +225,25 @@ void* writer(void* arg) {
     int writerId = *(int*)arg;
     while (1) {
         pthread_mutex_lock(&mutex);
-        pthread_cond_wait(&readCondition, &mutex);
+        while (readerCount != 0) {
+            pthread_cond_wait(&writeCondition, &mutex);
+        }
+        readerCount = -1; // Block readers
+        pthread_mutex_unlock(&mutex);
+
         printf("Writer %d entering the database\n", writerId);
         // Write data
 
         printf("Writer %d leaving the database\n", writerId);
+
+        pthread_mutex_lock(&mutex);
+        readerCount = 0; // Unblock readers
+        pthread_cond_broadcast(&readCondition);
         pthread_cond_signal(&writeCondition);
         pthread_mutex_unlock(&mutex);
 
-        // usleep(2000);
-        usleep(rand() % 2);
+        // usleep(rand() % 2);
+        usleep(100000); // sleep for 100ms
     }
     return NULL;
 }
@@ -157,6 +253,10 @@ int main() {
     pthread_t writers[NUM_WRITERS];
     int readerIds[NUM_READERS];
     int writerIds[NUM_WRITERS];
+
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&readCondition, NULL);
+    pthread_cond_init(&writeCondition, NULL);
 
     for (int i = 0; i < NUM_READERS; i++) {
         readerIds[i] = i + 1;
@@ -175,6 +275,10 @@ int main() {
     for (int i = 0; i < NUM_WRITERS; i++) {
         pthread_join(writers[i], NULL);
     }
+
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&readCondition);
+    pthread_cond_destroy(&writeCondition);
 
     return 0;
 }

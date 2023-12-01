@@ -6,8 +6,8 @@
 #include <unistd.h>
 
 #define BUFFER_SIZE 5
-#define NUM_PRODUCERS 8
-#define NUM_CONSUMERS 3
+#define NUM_PRODUCERS 1
+#define NUM_CONSUMERS 10
 
 int buffer[BUFFER_SIZE];
 int in = 0;
@@ -111,14 +111,6 @@ while (1)
 
     sleep(500);
 
-     // Cancel the threads (optional)
-    for (int i = 0; i < NUM_PRODUCERS; i++) {
-        pthread_cancel(producers[i]);
-    }
-
-    for (int i = 0; i < NUM_CONSUMERS; i++) {
-        pthread_cancel(consumers[i]);
-    }
 
     for (int i = 0; i < NUM_PRODUCERS; i++) {
         pthread_join(producers[i], NULL);

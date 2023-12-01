@@ -58,3 +58,6 @@ public class DiningPhilosophers {
         }
     }
 }
+
+
+//hiii
